@@ -1,0 +1,71 @@
+stages:
+  - scan
+  - deploy
+  - test
+
+sast_scan:
+  image: docker:stable
+  stage: scan
+  variables:
+    DOCKER_DRIVER: overlay2
+  services:
+    - docker:stable-dind
+  script:
+    - apk add py-pip
+    - pip install bandit
+    - bandit -r -f json -o bandit_result.json yaml-upload/ || true
+  artifacts:
+    paths: [bandit_result.json]
+    expire_in: 1 week
+
+sca_scan:
+  image: docker:stable
+  stage: scan
+  variables:
+    DOCKER_DRIVER: overlay2
+  services:
+    - docker:stable-dind
+  script:
+    - apk add py-pip
+    - pip install safety PyJWT==1.5.2 requests==2.18.1 urllib3==1.21.1 itsdangerous==0.24 Jinja2==2.9.6 Flask==0.12.2 PyYAML==3.13
+    - safety check --json >> safety_result.json || true
+  artifacts:
+    paths: [safety_result.json]
+    expire_in: 1 week
+
+gitleaks:
+  image: docker:stable
+  stage: scan
+  variables:
+    DOCKER_DRIVER: overlay2
+  services:
+    - docker:dind
+  script:
+    - docker run --rm --name=gitleaks -v $PWD/:/code zricethezav/gitleaks -v --repo-path=/code --report=/code/gitleaks.json || true
+  artifacts:
+    paths: [gitleaks.json]
+    expire_in: 1 week
+
+deploy:
+  stage: deploy
+  image: python:2.7-alpine3.9
+  variables:
+    REGION: us-west-2
+  script: 
+    - cd yaml-upload
+    - pip install -r requirements.txt && pip install chalice
+    - mkdir ~/.aws
+    - echo -e '[default]\naws_access_key_id='"$ACCESS_KEY_ID"'\naws_secret_access_key='"$SECRET_ACCESS_KEY"'\nregion='"$REGION"'' >> ~/.aws/config
+    - chalice deploy
+  
+lambdaguard:
+  stage: test
+  image: python:3.6-alpine3.9
+  variables:
+    REGION: us-west-2
+  script: 
+    - pip3 install lambdaguard
+    - lambdaguard --verbose --region $REGION --keys $ACCESS_KEY_ID $SECRET_ACCESS_KEY
+  artifacts:
+    paths: [lambdaguard_output]
+    expire_in: 1 week
