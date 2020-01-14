@@ -64,7 +64,7 @@ lambdaguard:
   variables:
     REGION: us-west-2
   script: 
-    - pip3 install lambdaguard
+    - pip3 install lambdaguard==2.3.6
     - lambdaguard --verbose --region $REGION --keys $ACCESS_KEY_ID $SECRET_ACCESS_KEY
   artifacts:
     paths: [lambdaguard_output]
