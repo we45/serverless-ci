@@ -18,19 +18,14 @@ sast_scan:
     paths: [bandit_result.json]
     expire_in: 1 week
 
-sca_scan:
-  image: docker:stable
+pyraider_dependency_scanning:
+  image: python:3.7-alpine
   stage: scan
-  variables:
-    DOCKER_DRIVER: overlay2
-  services:
-    - docker:stable-dind
   script:
-    - apk add py-pip
-    - pip install safety PyJWT==1.5.2 requests==2.18.1 urllib3==1.21.1 itsdangerous==0.24 Jinja2==2.9.6 Flask==0.12.2 PyYAML==3.13
-    - safety check --json >> safety_result.json || true
+    - pip install pyraider
+    - pyraider check -f yaml-upload/requirements.txt -e json pyraider.json
   artifacts:
-    paths: [safety_result.json]
+    paths: [pyraider.json]
     expire_in: 1 week
 
 gitleaks:
